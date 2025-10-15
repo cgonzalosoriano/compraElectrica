@@ -1,0 +1,44 @@
+
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { prisma } from '@/lib/db'
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions)
+    
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
+    const contractId = params.id
+
+    if (!contractId) {
+      return NextResponse.json({ error: 'ID de contrato requerido' }, { status: 400 })
+    }
+
+    // Obtener el contrato
+    const contract = await prisma.contract.findUnique({
+      where: { id: contractId },
+      include: {
+        client: true,
+        provider: true,
+        offer: true
+      }
+    })
+
+    if (!contract) {
+      return NextResponse.json({ error: 'Contrato no encontrado' }, { status: 404 })
+    }
+
+    return NextResponse.json({ contract })
+
+  } catch (error) {
+    console.error('Error fetching contract:', error)
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
+  }
+}
